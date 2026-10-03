@@ -1,7 +1,7 @@
 import axios from "axios";
 
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "https://blood-stock-prediction.onrender.com",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "https://blood-bank-demand-shortage-prediction-1.onrender.com",
   headers: {
     "Content-Type": "application/json",
   },
