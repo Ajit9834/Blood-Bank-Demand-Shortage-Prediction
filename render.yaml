@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: blood-bank-demand-shortage-api
+    runtime: python
+    buildCommand: pip install -r Backend/requirements.txt
+    startCommand: cd Backend && uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: CORS_ORIGINS
+        value: https://bloodbankdemandshortageprediction.vercel.app
