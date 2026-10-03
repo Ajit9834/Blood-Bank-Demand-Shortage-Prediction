@@ -1,0 +1,571 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+
+# Generated output
+outputs/
+
+# Raw/generated dataset
+data/raw/
+
+# Processed data
+data/processed/
+
+# Python build files
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+
+
+
+
+
+# Blood Bank Demand & Shortage Prediction Using Machine Learning
+
+## 1. Project Overview
+
+Blood banks need to maintain sufficient blood inventory while avoiding unnecessary overstock and wastage. Blood demand can vary depending on blood group, previous demand, hospital requirements, emergency cases, donations, seasonal patterns, and available stock.
+
+This project uses Machine Learning to:
+
+1. Predict future blood demand.
+2. Predict the risk of blood shortage as **Low, Medium, or High**.
+
+The backend is developed in Python using **XGBoost** and exposed through a **FastAPI** REST API. A React frontend can consume this API to display predictions to users.
+
+> **Note:** The current dataset is synthetically generated for project development and demonstration. The model results should not be interpreted as performance on real hospital or blood-bank data.
+
+---
+
+## 2. Project Objectives
+
+* Forecast future blood demand.
+* Identify potential blood shortage risk early.
+* Support blood inventory planning.
+* Reduce the possibility of shortages.
+* Help reduce unnecessary overstock and wastage.
+* Provide predictions through a REST API for frontend integration.
+
+---
+
+## 3. Machine Learning Tasks
+
+### Demand Prediction
+
+Demand prediction is a **regression** problem.
+
+The XGBoost regression model predicts the expected future blood demand as a numerical value.
+
+Evaluation metrics:
+
+* MAE
+* RMSE
+* R² Score
+
+### Shortage Risk Prediction
+
+Shortage prediction is a **classification** problem.
+
+The XGBoost classification model predicts one of three shortage-risk categories:
+
+* **Low**
+* **Medium**
+* **High**
+
+Evaluation metrics:
+
+* Accuracy
+* Precision
+* Recall
+* F1 Score
+* Confusion Matrix
+
+---
+
+## 4. Technology Stack
+
+### Backend
+
+* Python 3.11
+* FastAPI
+* Uvicorn
+* Pydantic
+
+### Machine Learning
+
+* XGBoost
+* Scikit-learn
+* Pandas
+* NumPy
+* Joblib
+
+### Development & Testing
+
+* Jupyter Notebook
+* Matplotlib
+* Seaborn
+* Pytest
+
+### Frontend
+
+* React
+
+The React frontend is maintained separately and communicates with the FastAPI backend.
+
+---
+
+## 5. Project Structure
+
+```text
+Blood_Bank_Demand_Shortage_Prediction/
+│
+├── data/
+│   ├── raw/
+│   └── processed/
+│
+├── models/
+│   ├── demand_xgb_model.pkl
+│   ├── shortage_xgb_model.pkl
+│   └── shortage_label_encoder.pkl
+│
+├── notebooks/
+│   └── 01_data_analysis.ipynb
+│
+├── src/
+│   ├── data/
+│   │   ├── eda.py
+│   │   ├── generate_dataset.py
+│   │   └── preprocessing.py
+│   │
+│   ├── models/
+│   │   ├── demand_model.py
+│   │   ├── shortage_model.py
+│   │   └── model_loader.py
+│   │
+│   └── services/
+│       └── prediction_service.py
+│
+├── api/
+│   ├── main.py
+│   ├── routes/
+│   │   ├── health.py
+│   │   └── prediction.py
+│   └── schemas/
+│       └── prediction.py
+│
+├── tests/
+│   ├── test_api.py
+│   └── __init__.py
+│
+├── outputs/
+│   ├── figures/
+│   └── metrics/
+│
+├── requirements.txt
+├── .gitignore
+└── README.md
+```
+
+---
+
+## 6. Input Features
+
+The prediction API accepts the following features:
+
+| Feature                   | Description                          |
+| ------------------------- | ------------------------------------ |
+| `blood_group`             | Blood group such as O+, A+, B+, etc. |
+| `month`                   | Month of the year, 1–12              |
+| `day_of_week`             | Day of the week, 0–6                 |
+| `season`                  | Seasonal category                    |
+| `current_blood_stock`     | Current available blood units        |
+| `previous_demand`         | Previous demand                      |
+| `average_daily_usage`     | Average daily blood usage            |
+| `number_of_donations`     | Number of donations                  |
+| `incoming_blood_units`    | Expected incoming blood units        |
+| `hospital_requests`       | Number of hospital requests          |
+| `emergency_cases`         | Number of emergency cases            |
+| `previous_week_demand`    | Demand during the previous week      |
+| `previous_month_demand`   | Demand during the previous month     |
+| `days_of_stock_remaining` | Estimated remaining stock duration   |
+
+---
+
+## 7. Model Performance
+
+The current models were trained and evaluated using the synthetic development dataset.
+
+### Demand Prediction
+
+| Metric |  Score |
+| ------ | -----: |
+| MAE    | 4.1292 |
+| RMSE   | 5.2064 |
+| R²     | 0.8662 |
+
+### Shortage Risk Prediction
+
+| Metric    |  Score |
+| --------- | -----: |
+| Accuracy  | 0.8925 |
+| Precision | 0.8928 |
+| Recall    | 0.8925 |
+| F1 Score  | 0.8926 |
+
+These results are based on synthetic data and are intended for project development and demonstration.
+
+---
+
+## 8. Dataset
+
+The development dataset contains 15,000 synthetic records covering the period from 2023 to 2025.
+
+The dataset includes information related to:
+
+* Blood group
+* Blood stock
+* Previous demand
+* Average daily usage
+* Donations
+* Incoming blood units
+* Hospital requests
+* Emergency cases
+* Previous week/month demand
+* Seasonality
+* Days of stock remaining
+* Future demand
+* Shortage risk
+
+The dataset is generated using:
+
+```text
+src/data/generate_dataset.py
+```
+
+Because the dataset is synthetic, this project should not be used for real-world medical or operational decision-making without validation using appropriate real-world data.
+
+---
+
+## 9. Data Preprocessing
+
+The preprocessing pipeline performs:
+
+* Dataset loading
+* Feature selection
+* Categorical feature encoding
+* Numerical feature processing
+* Time-based train/test splitting
+
+Categorical features include:
+
+* Blood group
+* Season
+
+The data is split chronologically:
+
+* Training data: before 2025
+* Testing data: 2025
+
+This avoids randomly mixing future records into the training data.
+
+---
+
+## 10. XGBoost Models
+
+The project uses XGBoost for both machine-learning tasks.
+
+### Demand Model
+
+```text
+XGBRegressor
+```
+
+The model predicts future blood demand as a numerical value.
+
+### Shortage Model
+
+```text
+XGBClassifier
+```
+
+The model predicts:
+
+```text
+Low
+Medium
+High
+```
+
+A saved label encoder converts the model's numerical class representation back into the corresponding shortage-risk category.
+
+---
+
+## 11. Running the Backend
+
+### Step 1: Activate the virtual environment
+
+Windows PowerShell:
+
+```powershell
+.venv\Scripts\activate
+```
+
+### Step 2: Start FastAPI
+
+From the project root:
+
+```powershell
+uvicorn api.main:app --reload
+```
+
+The API will run at:
+
+```text
+http://127.0.0.1:8000
+```
+
+---
+
+## 12. API Documentation
+
+FastAPI automatically provides interactive Swagger documentation.
+
+Open:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+The API can be tested directly from the Swagger interface.
+
+---
+
+## 13. API Endpoints
+
+### Health Check
+
+```text
+GET /health
+```
+
+Example response:
+
+```json
+{
+  "status": "healthy",
+  "service": "Blood Bank Demand & Shortage Prediction API"
+}
+```
+
+### Prediction
+
+```text
+POST /predict
+```
+
+Example request:
+
+```json
+{
+  "blood_group": "O+",
+  "month": 10,
+  "day_of_week": 4,
+  "season": "Autumn",
+  "current_blood_stock": 60,
+  "previous_demand": 78,
+  "average_daily_usage": 11.2,
+  "number_of_donations": 8,
+  "incoming_blood_units": 10,
+  "hospital_requests": 18,
+  "emergency_cases": 3,
+  "previous_week_demand": 80,
+  "previous_month_demand": 76,
+  "days_of_stock_remaining": 5.4
+}
+```
+
+Example response:
+
+```json
+{
+  "predicted_demand": 80.34,
+  "shortage_risk": "Medium"
+}
+```
+
+---
+
+## 14. React Frontend Integration
+
+The React frontend can send a POST request to:
+
+```text
+http://127.0.0.1:8000/predict
+```
+
+Example JavaScript request:
+
+```javascript
+const response = await fetch("http://127.0.0.1:8000/predict", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    blood_group: "O+",
+    month: 10,
+    day_of_week: 4,
+    season: "Autumn",
+    current_blood_stock: 60,
+    previous_demand: 78,
+    average_daily_usage: 11.2,
+    number_of_donations: 8,
+    incoming_blood_units: 10,
+    hospital_requests: 18,
+    emergency_cases: 3,
+    previous_week_demand: 80,
+    previous_month_demand: 76,
+    days_of_stock_remaining: 5.4
+  })
+});
+
+const data = await response.json();
+
+console.log(data.predicted_demand);
+console.log(data.shortage_risk);
+```
+
+The backend currently allows requests from React development servers running on:
+
+```text
+http://localhost:5173
+http://localhost:3000
+```
+
+---
+
+## 15. Testing
+
+Run the automated tests using:
+
+```powershell
+python -m pytest
+```
+
+Current result:
+
+```text
+2 passed
+```
+
+The tests verify:
+
+* Health endpoint
+* Prediction endpoint
+* Prediction response structure
+* Predicted demand data type
+* Valid shortage-risk category
+
+---
+
+## 16. EDA
+
+Exploratory data analysis is available through:
+
+```text
+src/data/eda.py
+```
+
+Generated visualizations include:
+
+* Future demand distribution
+* Demand by blood group
+* Shortage risk distribution
+* Stock vs demand
+* Correlation matrix
+* Monthly demand trend
+
+Generated figures are stored in:
+
+```text
+outputs/figures/
+```
+
+---
+
+## 17. Model Limitations
+
+This project is a machine-learning decision-support prototype.
+
+The current development dataset is synthetic and therefore does not represent actual blood-bank operations.
+
+The model should not replace:
+
+* Blood-bank professionals
+* Medical judgment
+* Emergency protocols
+* Operational inventory decisions
+
+Before real-world deployment, the models would require validation and retraining using suitable real blood-bank or hospital data.
+
+---
+
+## 18. Future Scope
+
+Possible future improvements include:
+
+* Real-time blood-bank data integration
+* Hospital-to-hospital blood sharing
+* SMS or mobile application alerts
+* GIS-based blood availability
+* Donor prediction
+* Multi-hospital forecasting
+* Cloud deployment
+* Advanced time-series models such as LSTM
+
+---
+
+## 19. Team Integration
+
+The backend is designed to operate independently from the React frontend.
+
+### Backend
+
+```text
+Python → XGBoost → FastAPI
+```
+
+### Frontend
+
+```text
+React → HTTP POST → FastAPI → Prediction → JSON Response
+```
+
+The frontend does not need to load or execute the XGBoost models directly. It only sends the required input features to the `/predict` endpoint and displays the returned prediction.
+
+---
+
+## 20. Project Disclaimer
+
+This project is intended for educational and research purposes. The current model uses synthetic development data and has not been validated for clinical or real-world blood-bank use.
