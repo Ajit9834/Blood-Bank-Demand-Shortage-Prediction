@@ -6,4 +6,4 @@ services:
     startCommand: cd Backend && uvicorn api.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: CORS_ORIGINS
-        value: https://bloodbankdemandshortageprediction.vercel.app
+        value: https://bloodbankdemandshortageprediction.vercel.app,https://bloodbankdemandshortageprediction1.vercel.app
