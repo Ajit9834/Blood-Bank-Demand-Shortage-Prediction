@@ -42,6 +42,21 @@ button:disabled {
   min-height: 100vh;
 }
 
+.auth-app {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 9% 18%, rgba(255, 220, 219, 0.72), transparent 39%),
+    radial-gradient(ellipse at 92% 84%, rgba(255, 230, 229, 0.72), transparent 40%),
+    linear-gradient(135deg, #fff8f8 0%, #ffffff 54%, #fff7f7 100%);
+}
+
+.auth-art {
+  background:
+    linear-gradient(147deg, transparent 44%, rgba(255, 225, 224, 0.42) 44.1%, transparent 67%),
+    linear-gradient(32deg, transparent 52%, rgba(255, 234, 233, 0.58) 52.1%, transparent 77%),
+    radial-gradient(ellipse at 16% 36%, rgba(255, 216, 215, 0.45), transparent 44%);
+}
+
 .page-enter {
   animation: page-enter 360ms ease-out both;
 }

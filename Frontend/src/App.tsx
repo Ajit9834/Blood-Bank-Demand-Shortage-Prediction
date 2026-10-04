@@ -23,6 +23,8 @@ import {
   Layers3,
   LayoutDashboard,
   LoaderCircle,
+  LogIn,
+  LogOut,
   Menu,
   MoreHorizontal,
   Package,
@@ -34,6 +36,7 @@ import {
   Sparkles,
   TrendingUp,
   Users,
+  UserPlus,
   X,
   Zap,
 } from "lucide-react";
@@ -55,9 +58,12 @@ import {
   YAxis,
 } from "recharts";
 import { bloodGroups, classificationModels, demandForecast, demandMix, demandModels, inventory, stockTrend } from "./data/mockData";
-import { predictDemand, predictShortage } from "./services/api";
-import type { BloodGroup, ForecastResult, PageKey, RiskLevel, RiskResult, Season } from "./types";
+import { clearAuthSession, getStoredAuthSession, logoutAccount, predictDemand, predictShortage } from "./services/api";
+import type { AuthSession, BloodGroup, ForecastResult, PageKey, RiskLevel, RiskResult, Season } from "./types";
 import { EmptyState, KpiCard, LoadingState, Panel, RiskBadge, SectionHeading, StatusMessage } from "./components/ui";
+import { AuthPage } from "./components/AuthPage";
+import { AuthShell } from "./components/AuthShell";
+import { PasswordRecoveryPage } from "./components/PasswordRecoveryPage";
 const LivePredictionPage = lazy(() => import("./components/LivePredictionPage").then((module) => ({ default: module.LivePredictionPage })));
 const LiveDashboardPage = lazy(() => import("./components/LiveOperationsPages").then((module) => ({ default: module.LiveDashboardPage })));
 const LiveInventoryPage = lazy(() => import("./components/LiveOperationsPages").then((module) => ({ default: module.LiveInventoryPage })));
@@ -91,6 +97,11 @@ const pageInfo: Record<PageKey, { title: string; description: string }> = {
   analytics: { title: "Analytics", description: "Explore demand, stock and risk trends across the blood bank." },
   models: { title: "ML Model Performance", description: "Comparison of algorithms used for blood-bank prediction." },
   about: { title: "About BloodSight", description: "A decision-support platform for smarter blood-bank planning." },
+  login: { title: "Sign in", description: "Access your BloodSight account" },
+  register: { title: "Create account", description: "Register for BloodSight" },
+  forgotPassword: { title: "Forgot password", description: "Request a secure password reset link" },
+  resetPassword: { title: "Reset password", description: "Choose a new account password" },
+  notFound: { title: "Page not found", description: "This page could not be found" },
 };
 
 const riskColors = { Low: "#35a879", Medium: "#e4a23b", High: "#e25b63" };
@@ -99,8 +110,36 @@ const riskData = [
   { name: "Medium risk", value: 2, color: riskColors.Medium },
   { name: "High risk", value: 2, color: riskColors.High },
 ];
+const RESET_TOKEN_STORAGE_KEY = "bloodsight.password.reset-token";
+const pagePaths: Record<PageKey, string> = {
+  dashboard: "/dashboard",
+  demand: "/demand",
+  shortage: "/shortage",
+  inventory: "/inventory",
+  analytics: "/analytics",
+  models: "/models",
+  about: "/about",
+  login: "/login",
+  register: "/register",
+  forgotPassword: "/forgot-password",
+  resetPassword: "/reset-password",
+  notFound: "/404",
+};
+const protectedPages = new Set<PageKey>(["dashboard", "demand", "shortage", "inventory", "analytics", "models", "about"]);
 
-function Sidebar({ page, onNavigate, mobileOpen, onClose }: { page: PageKey; onNavigate: (page: PageKey) => void; mobileOpen: boolean; onClose: () => void }) {
+function pageFromLocation(session: AuthSession | null): PageKey {
+  const isAuthenticated = Boolean(session && session.expires_at > Date.now());
+  if (new URLSearchParams(window.location.search).has("reset_token")) return "resetPassword";
+  if (window.location.pathname === "/") return isAuthenticated ? "dashboard" : "login";
+  const requestedPage = (Object.keys(pagePaths) as PageKey[]).find((page) => pagePaths[page] === window.location.pathname);
+  if (!requestedPage) return "notFound";
+  if (protectedPages.has(requestedPage) && !isAuthenticated) return "login";
+  if (isAuthenticated && ["login", "register", "forgotPassword"].includes(requestedPage)) return "dashboard";
+  if (requestedPage === "resetPassword" && !sessionStorage.getItem(RESET_TOKEN_STORAGE_KEY)) return "forgotPassword";
+  return requestedPage;
+}
+
+function Sidebar({ page, onNavigate, mobileOpen, onClose, user, onLogout, isSigningOut }: { page: PageKey; onNavigate: (page: PageKey) => void; mobileOpen: boolean; onClose: () => void; user: AuthSession["user"] | null; onLogout: () => void; isSigningOut: boolean }) {
   return (
     <>
       {mobileOpen ? <button aria-label="Close navigation" onClick={onClose} className="fixed inset-0 z-40 bg-[#10223b]/35 backdrop-blur-[2px] lg:hidden" /> : null}
@@ -123,6 +162,21 @@ function Sidebar({ page, onNavigate, mobileOpen, onClose }: { page: PageKey; onN
             const active = page === item.key;
             return <div key={item.key}>{showSection ? <p className="mb-2 mt-6 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#6f829d]">{item.section}</p> : null}<button onClick={() => onNavigate(item.key)} className={`group mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[13px] font-medium transition-all ${active ? "bg-white text-[#10223b] shadow-[0_6px_18px_rgba(0,0,0,0.12)]" : "text-[#aebbd0] hover:bg-white/8 hover:text-white"}`}><Icon size={18} strokeWidth={active ? 2.3 : 1.8} className={active ? "text-[#e2515a]" : "text-[#8093ae] group-hover:text-[#d8e3f1]"} /><span className="flex-1">{item.label}</span>{item.key === "shortage" ? <span className={`flex h-5 min-w-5 items-center justify-center rounded-full text-[10px] font-bold ${active ? "bg-[#fff0f0] text-[#e2515a]" : "bg-[#e2515a] text-white"}`}>2</span> : null}</button></div>;
           })}
+          <p className="mb-2 mt-6 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#6f829d]">Account</p>
+          {user ? <>
+            <p className="truncate px-3 pb-2 text-xs text-[#aebbd0]" title={user.email}>{user.email}</p>
+            <button onClick={onLogout} disabled={isSigningOut} className="group mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[13px] font-medium text-[#aebbd0] transition-all hover:bg-white/8 hover:text-white disabled:opacity-60">
+              {isSigningOut ? <LoaderCircle size={18} className="animate-spin text-[#8093ae]" /> : <LogOut size={18} className="text-[#8093ae] group-hover:text-[#d8e3f1]" />}
+              <span>{isSigningOut ? "Signing out..." : "Sign out"}</span>
+            </button>
+          </> : <>
+            <button onClick={() => onNavigate("login")} className={`group mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[13px] font-medium transition-all ${page === "login" ? "bg-white text-[#10223b]" : "text-[#aebbd0] hover:bg-white/8 hover:text-white"}`}>
+              <LogIn size={18} className={page === "login" ? "text-[#e2515a]" : "text-[#8093ae] group-hover:text-[#d8e3f1]"} /><span>Sign in</span>
+            </button>
+            <button onClick={() => onNavigate("register")} className={`group mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[13px] font-medium transition-all ${page === "register" ? "bg-white text-[#10223b]" : "text-[#aebbd0] hover:bg-white/8 hover:text-white"}`}>
+              <UserPlus size={18} className={page === "register" ? "text-[#e2515a]" : "text-[#8093ae] group-hover:text-[#d8e3f1]"} /><span>Create account</span>
+            </button>
+          </>}
         </div>
         <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.06] p-4"><div className="flex items-center gap-2 text-[#c7d5e6]"><Sparkles size={15} className="text-[#e9a7a9]" /><span className="text-xs font-semibold">Live environment</span></div><p className="mt-2 text-[11px] leading-5 text-[#8397b4]">Inventory, analytics, alerts, and model results are connected to FastAPI.</p><div className="mt-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#81c9a6]"><span className="h-1.5 w-1.5 rounded-full bg-[#4ac18a]" /> API connected</div></div>
       </aside>
@@ -219,9 +273,126 @@ function XGBoostSection() { const features = [{ icon: Database, title: "Structur
 function AboutPage({ onNavigate }: { onNavigate: (page: PageKey) => void }) { return <div className="page-enter space-y-6"><div className="overflow-hidden rounded-2xl bg-[#12223b] p-6 text-white sm:p-9"><div className="max-w-3xl"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e2515a]"><Droplets size={20} /></span><span className="text-lg font-bold tracking-[-0.03em]">BloodSight</span></div><p className="mt-9 text-[10px] font-bold uppercase tracking-[0.22em] text-[#8fa7c8]">Full project name</p><h1 className="mt-2 text-3xl font-bold tracking-[-0.05em] sm:text-4xl">Blood Bank Demand &amp; Shortage Prediction Using Machine Learning</h1><p className="mt-4 max-w-2xl text-base leading-7 text-[#b6c4d6]">A forecasting and decision-support interface that helps blood-bank teams anticipate requirements, spot possible shortages and plan with more confidence.</p><p className="mt-7 text-sm font-semibold text-[#f0b0b2]">“Predict Demand. Detect Shortages. Plan Better.”</p></div></div><div className="grid gap-6 lg:grid-cols-2"><Panel className="p-6 sm:p-7"><SectionHeading eyebrow="Project brief" title="Objective" /><p className="text-sm leading-7 text-[#718096]">Predict future blood requirements and identify potential blood-stock shortages using machine learning. The system is designed for forecasting and operational decision support only, not clinical decision-making.</p><div className="mt-6 grid gap-3 sm:grid-cols-2"><div className="rounded-xl bg-[#f7f9fc] p-4"><TrendingUp size={18} className="text-[#2d6aca]" /><p className="mt-4 text-sm font-bold text-[#344862]">Demand prediction</p><p className="mt-1 text-xs text-[#8491a2]">Regression task</p></div><div className="rounded-xl bg-[#fff7f7] p-4"><AlertTriangle size={18} className="text-[#e2515a]" /><p className="mt-4 text-sm font-bold text-[#344862]">Shortage prediction</p><p className="mt-1 text-xs text-[#8491a2]">Multi-class classification</p></div></div></Panel><Panel className="p-6 sm:p-7"><SectionHeading eyebrow="Technical foundation" title="Algorithms & evaluation" /><div className="space-y-4"><div><p className="text-xs font-bold uppercase tracking-[0.12em] text-[#9aa6b5]">Algorithms</p><p className="mt-2 text-sm font-semibold text-[#52657e]">Linear Regression <span className="mx-1.5 text-[#cbd5e1]">•</span> Random Forest <span className="mx-1.5 text-[#cbd5e1]">•</span> XGBoost</p></div><div className="border-t border-[#edf1f5] pt-4"><p className="text-xs font-bold uppercase tracking-[0.12em] text-[#9aa6b5]">Demand metrics</p><p className="mt-2 text-sm font-semibold text-[#52657e]">MAE <span className="mx-1.5 text-[#cbd5e1]">•</span> RMSE <span className="mx-1.5 text-[#cbd5e1]">•</span> R²</p></div><div className="border-t border-[#edf1f5] pt-4"><p className="text-xs font-bold uppercase tracking-[0.12em] text-[#9aa6b5]">Shortage metrics</p><p className="mt-2 text-sm font-semibold text-[#52657e]">Accuracy <span className="mx-1.5 text-[#cbd5e1]">•</span> Precision <span className="mx-1.5 text-[#cbd5e1]">•</span> Recall <span className="mx-1.5 text-[#cbd5e1]">•</span> F1-score</p></div></div></Panel></div><Panel className="p-6 sm:p-7"><SectionHeading eyebrow="Implementation path" title="Ready for a FastAPI backend" description="The frontend already separates presentation from prediction services." action={<button onClick={() => onNavigate("models")} className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2d6aca]">View model performance <ArrowRight size={14} /></button>} /><div className="grid gap-3 md:grid-cols-4">{[{ icon: Database, label: "Python / Pandas", detail: "Data pipeline" }, { icon: BrainCircuit, label: "Scikit-learn / XGBoost", detail: "ML models" }, { icon: Zap, label: "FastAPI", detail: "Prediction API" }, { icon: Activity, label: "React / TypeScript", detail: "This interface" }].map((item, index) => { const Icon = item.icon; return <div key={item.label} className="relative flex items-center gap-3 rounded-xl border border-[#edf1f5] p-4"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#edf3fc] text-[#2d6aca]"><Icon size={17} /></span><span><span className="block text-xs font-bold text-[#344862]">{item.label}</span><span className="mt-1 block text-[10px] text-[#8b98a9]">{item.detail}</span></span>{index < 3 ? <ArrowRight size={14} className="absolute -right-2.5 z-10 hidden bg-white text-[#aab6c4] md:block" /> : null}</div>; })}</div><div className="mt-6 flex items-start gap-3 rounded-xl bg-[#f7f9fc] p-4"><Settings2 size={16} className="mt-0.5 shrink-0 text-[#2d6aca]" /><p className="text-xs leading-5 text-[#718096]"><span className="font-bold text-[#52657e]">API contract:</span> <code className="rounded bg-white px-1.5 py-0.5 text-[11px] text-[#2d6aca]">POST /api/predict/demand</code> <code className="ml-1 rounded bg-white px-1.5 py-0.5 text-[11px] text-[#2d6aca]">POST /api/predict/shortage</code> <code className="ml-1 rounded bg-white px-1.5 py-0.5 text-[11px] text-[#2d6aca]">GET /api/inventory</code></p></div></Panel></div>; }
 
 export default function App() {
-  const [page, setPage] = useState<PageKey>("dashboard"); const [mobileOpen, setMobileOpen] = useState(false); const [toast, setToast] = useState<string | null>(null); const toastTimer = useRef<number | null>(null);
-  const navigate = useCallback((nextPage: PageKey) => { setPage(nextPage); setMobileOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }, []); const showToast = useCallback((message: string) => { setToast(message); if (toastTimer.current !== null) window.clearTimeout(toastTimer.current); toastTimer.current = window.setTimeout(() => setToast(null), 2800); }, []);
+  const [session, setSession] = useState<AuthSession | null>(() => getStoredAuthSession());
+  const [resetToken, setResetToken] = useState<string | null>(() => {
+    const queryToken = new URLSearchParams(window.location.search).get("reset_token");
+    if (queryToken) {
+      sessionStorage.setItem(RESET_TOKEN_STORAGE_KEY, queryToken);
+      return queryToken;
+    }
+    return sessionStorage.getItem(RESET_TOKEN_STORAGE_KEY);
+  });
+  const [page, setPage] = useState<PageKey>(() => pageFromLocation(session));
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const toastTimer = useRef<number | null>(null);
+  const navigate = useCallback((requestedPage: PageKey) => {
+    let nextPage = requestedPage;
+    const isAuthenticated = Boolean(session && session.expires_at > Date.now());
+    if (protectedPages.has(nextPage) && !isAuthenticated) {
+      if (session) {
+        clearAuthSession();
+        setSession(null);
+      }
+      nextPage = "login";
+    }
+    if (isAuthenticated && ["login", "register", "forgotPassword"].includes(nextPage)) nextPage = "dashboard";
+    window.history.pushState(null, "", pagePaths[nextPage]);
+    setPage(nextPage);
+    setMobileOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [session]);
+  const showToast = useCallback((message: string) => { setToast(message); if (toastTimer.current !== null) window.clearTimeout(toastTimer.current); toastTimer.current = window.setTimeout(() => setToast(null), 2800); }, []);
   useEffect(() => () => { if (toastTimer.current !== null) window.clearTimeout(toastTimer.current); }, []);
-  const renderPage = () => { switch (page) { case "dashboard": return <Dashboard onNavigate={navigate} onToast={showToast} />; case "demand": return <DemandPage onToast={showToast} />; case "shortage": return <ShortagePage onToast={showToast} />; case "inventory": return <InventoryPage />; case "analytics": return <AnalyticsPage />; case "models": return <ModelsPage />; case "about": return <AboutPage onNavigate={navigate} />; } };
-  return <div className="app-shell"><Sidebar page={page} onNavigate={navigate} mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} /><div className="lg:pl-[260px]"><TopNavbar page={page} onMenu={() => setMobileOpen(true)} onToast={showToast} /><main className="mx-auto max-w-[1720px] p-5 sm:p-8 lg:p-10"><Suspense fallback={<LoadingState label="Loading view" />}>{renderPage()}</Suspense><footer className="mt-10 flex flex-col gap-2 border-t border-[#e5eaf1] pt-5 text-[10px] text-[#93a0af] sm:flex-row sm:items-center sm:justify-between"><span>BloodSight · Live backend data</span><span>Forecasting only, not medical advice</span></footer></main></div>{toast ? <div className="fixed bottom-5 right-5 z-[70] flex max-w-[310px] items-center gap-2.5 rounded-xl border border-[#d5e6dd] bg-white px-4 py-3 text-xs font-semibold text-[#355e4b] shadow-[0_15px_38px_rgba(25,47,80,0.17)]"><Check size={15} className="text-[#35a879]" />{toast}</div> : null}</div>;
+  useEffect(() => {
+    const syncLocation = () => {
+      const queryToken = new URLSearchParams(window.location.search).get("reset_token");
+      if (queryToken) {
+        sessionStorage.setItem(RESET_TOKEN_STORAGE_KEY, queryToken);
+        setResetToken(queryToken);
+      }
+      const nextPage = pageFromLocation(session);
+      setPage(nextPage);
+      const currentUrl = new URL(window.location.href);
+      const targetSearch = nextPage === "resetPassword" && queryToken
+        ? `?reset_token=${encodeURIComponent(queryToken)}`
+        : "";
+      if (currentUrl.pathname !== pagePaths[nextPage] || currentUrl.search !== targetSearch) {
+        window.history.replaceState(null, "", `${pagePaths[nextPage]}${targetSearch}`);
+      }
+      setMobileOpen(false);
+    };
+    syncLocation();
+    window.addEventListener("popstate", syncLocation);
+    return () => window.removeEventListener("popstate", syncLocation);
+  }, [session]);
+  useEffect(() => {
+    const resetUrl = new URL(window.location.href);
+    if (resetUrl.searchParams.has("reset_token")) {
+      resetUrl.searchParams.delete("reset_token");
+      window.history.replaceState(null, "", resetUrl);
+    }
+  }, []);
+  const expireSession = useCallback(() => {
+    clearAuthSession();
+    setSession(null);
+    setPage("login");
+    setMobileOpen(false);
+    window.history.replaceState(null, "", pagePaths.login);
+    showToast("Your session expired. Please sign in again.");
+  }, [showToast]);
+  useEffect(() => {
+    if (!session) return;
+    const remainingMs = session.expires_at - Date.now();
+    if (remainingMs <= 0) {
+      expireSession();
+      return;
+    }
+    const timer = window.setTimeout(expireSession, remainingMs);
+    return () => window.clearTimeout(timer);
+  }, [session, expireSession]);
+  const handleAuthenticated = (nextSession: AuthSession) => {
+    setSession(nextSession);
+    setPage("dashboard");
+    setMobileOpen(false);
+    window.history.pushState(null, "", pagePaths.dashboard);
+    showToast("Signed in successfully");
+  };
+  const handleLogout = async () => {
+    if (!session) return;
+    setIsSigningOut(true);
+    try {
+      await logoutAccount(session.access_token);
+      showToast("Signed out successfully");
+    } catch {
+      showToast("Signed out on this device; the server could not revoke the session.");
+    } finally {
+      clearAuthSession();
+      setSession(null);
+      setIsSigningOut(false);
+      setPage("login");
+      setMobileOpen(false);
+      window.history.replaceState(null, "", pagePaths.login);
+    }
+  };
+  const renderPage = () => {
+    switch (page) {
+      case "dashboard": return <Dashboard onNavigate={navigate} onToast={showToast} />;
+      case "demand": return <DemandPage onToast={showToast} />;
+      case "shortage": return <ShortagePage onToast={showToast} />;
+      case "inventory": return <InventoryPage />;
+      case "analytics": return <AnalyticsPage />;
+      case "models": return <ModelsPage />;
+      case "about": return <AboutPage onNavigate={navigate} />;
+      case "register":
+      case "login": return <AuthPage mode={page} onModeChange={navigate} onForgotPassword={() => navigate("forgotPassword")} onClose={() => navigate(session ? "dashboard" : "login")} onAuthenticated={handleAuthenticated} />;
+      case "forgotPassword": return <PasswordRecoveryPage mode="forgot" token={null} onBack={() => navigate("login")} onClose={() => navigate(session ? "dashboard" : "login")} />;
+      case "resetPassword": return <PasswordRecoveryPage mode="reset" token={resetToken} onBack={() => { sessionStorage.removeItem(RESET_TOKEN_STORAGE_KEY); setResetToken(null); navigate("forgotPassword"); }} onClose={() => navigate(session ? "dashboard" : "login")} onResetComplete={() => { sessionStorage.removeItem(RESET_TOKEN_STORAGE_KEY); setResetToken(null); clearAuthSession(); setSession(null); showToast("Password reset. Sign in with your new password."); setPage("login"); window.history.replaceState(null, "", pagePaths.login); }} />;
+      case "notFound": return <AuthShell mode="login" onClose={() => navigate(session ? "dashboard" : "login")}><div className="space-y-4 text-center"><p className="text-xs font-bold uppercase tracking-[0.2em] text-[#d71918]">404 error</p><h2 className="text-2xl font-bold text-[#171b20]">Page not found</h2><p className="text-sm leading-6 text-[#70777d]">That address doesn’t match a BloodSight page.</p><button onClick={() => navigate(session ? "dashboard" : "login")} className="w-full rounded-xl bg-[#d71918] px-4 py-3.5 text-base font-bold text-white transition hover:bg-[#bd1515]">{session ? "Return to dashboard" : "Go to login"}</button></div></AuthShell>;
+    }
+  };
+  const isAuthPage = page === "login" || page === "register" || page === "forgotPassword" || page === "resetPassword" || page === "notFound";
+  if (isAuthPage) return <div className="auth-app"><Suspense fallback={<LoadingState label="Loading account page" />}>{renderPage()}</Suspense>{toast ? <div className="fixed bottom-5 right-5 z-[70] flex max-w-[310px] items-center gap-2.5 rounded-xl border border-[#f2d1d0] bg-white px-4 py-3 text-xs font-semibold text-[#723d3c] shadow-[0_15px_38px_rgba(25,47,80,0.17)]"><Check size={15} className="text-[#d71918" />{toast}</div> : null}</div>;
+  return <div className="app-shell"><Sidebar page={page} onNavigate={navigate} mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} user={session?.user ?? null} onLogout={() => void handleLogout()} isSigningOut={isSigningOut} /><div className="lg:pl-[260px]"><TopNavbar page={page} onMenu={() => setMobileOpen(true)} onToast={showToast} /><main className="mx-auto max-w-[1720px] p-5 sm:p-8 lg:p-10"><Suspense fallback={<LoadingState label="Loading view" />}>{renderPage()}</Suspense><footer className="mt-10 flex flex-col gap-2 border-t border-[#e5eaf1] pt-5 text-[10px] text-[#93a0af] sm:flex-row sm:items-center sm:justify-between"><span>BloodSight · Live backend data</span><span>Forecasting only, not medical advice</span></footer></main></div>{toast ? <div className="fixed bottom-5 right-5 z-[70] flex max-w-[310px] items-center gap-2.5 rounded-xl border border-[#d5e6dd] bg-white px-4 py-3 text-xs font-semibold text-[#355e4b] shadow-[0_15px_38px_rgba(25,47,80,0.17)]"><Check size={15} className="text-[#35a879" />{toast}</div> : null}</div>;
 }

@@ -1,7 +1,7 @@
 import axios from "axios";
 
 export const apiClient = axios.create({
-  baseURL: import.meta.env.PROD ? "" : (import.meta.env.VITE_API_BASE_URL || ""),
+  baseURL: import.meta.env.PROD ? "" : (import.meta.env.VITE_API_URL || "http://localhost:8000"),
   headers: {
     "Content-Type": "application/json",
   },
@@ -9,6 +9,11 @@ export const apiClient = axios.create({
 });
 
 export const apiRoutes = {
+  authLogin: "/api/auth/login",
+  authRegister: "/api/auth/register",
+  authLogout: "/api/auth/logout",
+  authForgotPassword: "/api/auth/forgot-password",
+  authResetPassword: "/api/auth/reset-password",
   predict: "/api/predict",
   inventory: "/api/inventory",
   analytics: "/api/analytics",

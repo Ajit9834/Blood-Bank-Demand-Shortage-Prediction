@@ -13,6 +13,11 @@ const pageInfo: Record<PageKey, { title: string; description: string }> = {
   analytics: { title: "Analytics", description: "Live demand, stock, and risk trends" },
   models: { title: "ML Model Performance", description: "Actual evaluation results from trained models" },
   about: { title: "About BloodSight", description: "Blood-bank decision support" },
+  login: { title: "Sign in", description: "Access your BloodSight account" },
+  register: { title: "Create account", description: "Register for BloodSight" },
+  forgotPassword: { title: "Forgot password", description: "Request a secure password reset link" },
+  resetPassword: { title: "Reset password", description: "Choose a new account password" },
+  notFound: { title: "Page not found", description: "This page could not be found" },
 };
 
 const CACHE_TTL_MS = 15_000;

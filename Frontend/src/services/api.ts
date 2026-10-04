@@ -1,7 +1,62 @@
-import type { ApiAlert, ApiAnalytics, ApiInventoryRecord, ApiModelComparison, ForecastResult, PredictionRequest, PredictionResponse, RiskResult } from "../types";
+import type { ApiAlert, ApiAnalytics, ApiInventoryRecord, ApiModelComparison, AuthSession, ForecastResult, PredictionRequest, PredictionResponse, RiskResult } from "../types";
 import { apiClient, apiRoutes } from "./apiClient";
 
 export { apiClient, apiRoutes };
+
+const AUTH_SESSION_KEY = "bloodsight.auth.session";
+
+export function getStoredAuthSession(): AuthSession | null {
+  const stored = sessionStorage.getItem(AUTH_SESSION_KEY);
+  if (!stored) return null;
+  try {
+    const session = JSON.parse(stored) as AuthSession;
+    if (!session.access_token || !Number.isFinite(session.expires_at) || session.expires_at <= Date.now()) {
+      sessionStorage.removeItem(AUTH_SESSION_KEY);
+      return null;
+    }
+    return session;
+  } catch {
+    sessionStorage.removeItem(AUTH_SESSION_KEY);
+    return null;
+  }
+}
+
+function storeAuthSession(session: Omit<AuthSession, "expires_at">): AuthSession {
+  const storedSession: AuthSession = {
+    ...session,
+    expires_at: Date.now() + session.expires_in * 1000,
+  };
+  sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(storedSession));
+  return storedSession;
+}
+
+export function clearAuthSession(): void {
+  sessionStorage.removeItem(AUTH_SESSION_KEY);
+}
+
+export async function loginAccount(email: string, password: string): Promise<AuthSession> {
+  const { data } = await apiClient.post<AuthSession>(apiRoutes.authLogin, { email, password });
+  return storeAuthSession(data);
+}
+
+export async function registerAccount(email: string, password: string): Promise<AuthSession> {
+  const { data } = await apiClient.post<AuthSession>(apiRoutes.authRegister, { email, password });
+  return storeAuthSession(data);
+}
+
+export async function logoutAccount(accessToken: string): Promise<void> {
+  await apiClient.post(apiRoutes.authLogout, undefined, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  await apiClient.post(apiRoutes.authForgotPassword, { email });
+}
+
+export async function resetAccountPassword(token: string, password: string): Promise<void> {
+  await apiClient.post(apiRoutes.authResetPassword, { token, password });
+}
 
 function normalizePredictionRequest(request: PredictionRequest): PredictionRequest {
   const finite = (value: number, fallback: number) => Number.isFinite(value) ? value : fallback;

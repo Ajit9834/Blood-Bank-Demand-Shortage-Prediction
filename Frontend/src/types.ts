@@ -7,7 +7,26 @@ export type PageKey =
   | "inventory"
   | "analytics"
   | "models"
-  | "about";
+  | "about"
+  | "login"
+  | "register"
+  | "forgotPassword"
+  | "resetPassword"
+  | "notFound";
+
+export interface AuthUser {
+  id: number;
+  email: string;
+  created_at: string;
+}
+
+export interface AuthSession {
+  access_token: string;
+  token_type: "bearer";
+  expires_in: number;
+  expires_at: number;
+  user: AuthUser;
+}
 
 export type BloodGroup = "O+" | "O-" | "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-";
 
