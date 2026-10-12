@@ -1,19 +1,13 @@
 import axios from "axios";
 
+// One client keeps the future FastAPI base URL out of presentation components.
 export const apiClient = axios.create({
-  baseURL: import.meta.env.PROD ? "" : (import.meta.env.VITE_API_URL || "http://localhost:8000"),
-  headers: {
-    "Content-Type": "application/json",
-  },
+  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+  headers: { "Content-Type": "application/json" },
   timeout: 10000,
 });
 
 export const apiRoutes = {
-  authLogin: "/api/auth/login",
-  authRegister: "/api/auth/register",
-  authLogout: "/api/auth/logout",
-  authForgotPassword: "/api/auth/forgot-password",
-  authResetPassword: "/api/auth/reset-password",
   predict: "/api/predict",
   inventory: "/api/inventory",
   analytics: "/api/analytics",

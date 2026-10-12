@@ -1,0 +1,24 @@
+{
+  "task": "demand_regression",
+  "best_model": "Linear Regression",
+  "models": [
+    {
+      "model": "Linear Regression",
+      "mae": 3.9823,
+      "rmse": 5.0068,
+      "r2": 0.8763
+    },
+    {
+      "model": "Random Forest",
+      "mae": 4.2234,
+      "rmse": 5.3057,
+      "r2": 0.8611
+    },
+    {
+      "model": "XGBoost",
+      "mae": 4.1342,
+      "rmse": 5.2063,
+      "r2": 0.8662
+    }
+  ]
+}

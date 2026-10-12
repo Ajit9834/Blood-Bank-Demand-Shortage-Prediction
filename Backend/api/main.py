@@ -4,11 +4,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import db
 from api.routes import auth, health, operations, prediction
 from src.config import settings
 from src.models.model_loader import load_models
-from api.settings import database_is_configured
+from src.services.model_performance_service import evaluate_models
 
 
 logger = logging.getLogger(__name__)
@@ -17,9 +16,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.models = load_models()
-    if database_is_configured():
-        db.initialize_database()
+    app.state.model_performance = evaluate_models()
     logger.info("ML models loaded during application startup")
+    logger.info("Model performance metrics evaluated during application startup")
     yield
 
 
@@ -34,7 +33,6 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.cors_origins),
-    allow_origin_regex=r"^https://([a-z0-9-]+\.)*devtunnels\.ms$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,6 +42,6 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(prediction.router)
 app.include_router(health.router, prefix="/api")
-app.include_router(auth.router, prefix="/api")
 app.include_router(prediction.router, prefix="/api")
 app.include_router(operations.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")

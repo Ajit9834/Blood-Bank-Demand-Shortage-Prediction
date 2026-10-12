@@ -1,0 +1,133 @@
+# ==============================================================================
+# Node.js & Frontend Dependencies
+# ==============================================================================
+node_modules/
+**/node_modules/
+.pnp
+.pnp.js
+.vite/
+**/.vite/
+
+# ==============================================================================
+# Build & Distribution Artifacts
+# ==============================================================================
+dist/
+**/dist/
+build/
+**/build/
+out/
+**/out/
+.next/
+**/.next/
+
+# ==============================================================================
+# Python Virtual Environments
+# ==============================================================================
+.venv/
+**/.venv/
+venv/
+**/venv/
+env/
+**/env/
+ENV/
+**/ENV/
+
+# ==============================================================================
+# Python Bytecode & Cache
+# ==============================================================================
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+**/.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# ==============================================================================
+# Sensitive & Environment Files (Credentials, Keys, Tokens)
+# ==============================================================================
+.env
+**/.env
+.env.*
+**/.env.*
+*.env
+*.env.*
+!.env.example
+!**/.env.example
+
+# Certificates, Keys & Secrets
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+*.keystore
+id_rsa*
+secrets/
+**/secrets/
+credentials.json
+**/credentials.json
+service-account*.json
+**/service-account*.json
+
+# ==============================================================================
+# Logs & Debugging
+# ==============================================================================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==============================================================================
+# IDE & Code Editors
+# ==============================================================================
+.vscode/
+**/.vscode/
+.idea/
+**/.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# ==============================================================================
+# Operating System Artifacts
+# ==============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Thumbs.db:encryptable
+desktop.ini
+
+# ==============================================================================
+# Temporary & Generated Outputs
+# ==============================================================================
+outputs/
+**/outputs/
+tmp/
+**/tmp/
+temp/
+**/temp/
+.cache/
+**/.cache/
+
+# ==============================================================================
+# Large Model Files (>50MB)
+# ==============================================================================
+*random_forest*.pkl
+**/*random_forest*.pkl
+

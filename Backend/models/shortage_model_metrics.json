@@ -1,0 +1,189 @@
+{
+  "task": "shortage_classification",
+  "best_model": "Logistic Regression",
+  "models": [
+    {
+      "model": "Logistic Regression",
+      "accuracy": 0.8955,
+      "precision": 0.8951,
+      "recall": 0.8955,
+      "f1": 0.8944,
+      "confusion_matrix": {
+        "labels": [
+          "High",
+          "Low",
+          "Medium"
+        ],
+        "entries": [
+          {
+            "actual": "High",
+            "predicted": "High",
+            "count": 1627
+          },
+          {
+            "actual": "High",
+            "predicted": "Low",
+            "count": 0
+          },
+          {
+            "actual": "High",
+            "predicted": "Medium",
+            "count": 79
+          },
+          {
+            "actual": "Low",
+            "predicted": "High",
+            "count": 0
+          },
+          {
+            "actual": "Low",
+            "predicted": "Low",
+            "count": 1388
+          },
+          {
+            "actual": "Low",
+            "predicted": "Medium",
+            "count": 107
+          },
+          {
+            "actual": "Medium",
+            "predicted": "High",
+            "count": 184
+          },
+          {
+            "actual": "Medium",
+            "predicted": "Low",
+            "count": 151
+          },
+          {
+            "actual": "Medium",
+            "predicted": "Medium",
+            "count": 1450
+          }
+        ]
+      }
+    },
+    {
+      "model": "Random Forest",
+      "accuracy": 0.8785,
+      "precision": 0.8786,
+      "recall": 0.8785,
+      "f1": 0.8785,
+      "confusion_matrix": {
+        "labels": [
+          "High",
+          "Low",
+          "Medium"
+        ],
+        "entries": [
+          {
+            "actual": "High",
+            "predicted": "High",
+            "count": 1551
+          },
+          {
+            "actual": "High",
+            "predicted": "Low",
+            "count": 0
+          },
+          {
+            "actual": "High",
+            "predicted": "Medium",
+            "count": 155
+          },
+          {
+            "actual": "Low",
+            "predicted": "High",
+            "count": 0
+          },
+          {
+            "actual": "Low",
+            "predicted": "Low",
+            "count": 1341
+          },
+          {
+            "actual": "Low",
+            "predicted": "Medium",
+            "count": 154
+          },
+          {
+            "actual": "Medium",
+            "predicted": "High",
+            "count": 151
+          },
+          {
+            "actual": "Medium",
+            "predicted": "Low",
+            "count": 146
+          },
+          {
+            "actual": "Medium",
+            "predicted": "Medium",
+            "count": 1488
+          }
+        ]
+      }
+    },
+    {
+      "model": "XGBoost",
+      "accuracy": 0.8935,
+      "precision": 0.8941,
+      "recall": 0.8935,
+      "f1": 0.8937,
+      "confusion_matrix": {
+        "labels": [
+          "High",
+          "Low",
+          "Medium"
+        ],
+        "entries": [
+          {
+            "actual": "High",
+            "predicted": "High",
+            "count": 1567
+          },
+          {
+            "actual": "High",
+            "predicted": "Low",
+            "count": 0
+          },
+          {
+            "actual": "High",
+            "predicted": "Medium",
+            "count": 139
+          },
+          {
+            "actual": "Low",
+            "predicted": "High",
+            "count": 0
+          },
+          {
+            "actual": "Low",
+            "predicted": "Low",
+            "count": 1350
+          },
+          {
+            "actual": "Low",
+            "predicted": "Medium",
+            "count": 145
+          },
+          {
+            "actual": "Medium",
+            "predicted": "High",
+            "count": 125
+          },
+          {
+            "actual": "Medium",
+            "predicted": "Low",
+            "count": 122
+          },
+          {
+            "actual": "Medium",
+            "predicted": "Medium",
+            "count": 1538
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -104,17 +104,32 @@ class DemandModelMetric(BaseModel):
     r2: float
 
 
+class ConfusionMatrixEntry(BaseModel):
+    actual: str
+    predicted: str
+    count: int
+
+
+class ConfusionMatrixData(BaseModel):
+    labels: list[str]
+    entries: list[ConfusionMatrixEntry]
+
+
 class ClassificationModelMetric(BaseModel):
     model: str
     accuracy: float
     precision: float
     recall: float
     f1: float
+    confusion_matrix: ConfusionMatrixData | None = None
 
 
 class ModelComparisonResponse(BaseModel):
     demand_models: list[DemandModelMetric]
     shortage_models: list[ClassificationModelMetric]
+    # Name of the model selected as best for each task
+    demand_best_model: str = ""
+    shortage_best_model: str = ""
     evaluated_at: datetime
 
 

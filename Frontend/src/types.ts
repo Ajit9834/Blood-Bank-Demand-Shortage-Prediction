@@ -7,26 +7,7 @@ export type PageKey =
   | "inventory"
   | "analytics"
   | "models"
-  | "about"
-  | "login"
-  | "register"
-  | "forgotPassword"
-  | "resetPassword"
-  | "notFound";
-
-export interface AuthUser {
-  id: number;
-  email: string;
-  created_at: string;
-}
-
-export interface AuthSession {
-  access_token: string;
-  token_type: "bearer";
-  expires_in: number;
-  expires_at: number;
-  user: AuthUser;
-}
+  | "about";
 
 export type BloodGroup = "O+" | "O-" | "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-";
 
@@ -79,6 +60,8 @@ export interface ApiAnalytics {
 export interface ApiModelComparison {
   demand_models: DemandModelMetric[];
   shortage_models: ClassificationModelMetric[];
+  demand_best_model: string;
+  shortage_best_model: string;
   evaluated_at: string;
 }
 
@@ -141,10 +124,22 @@ export interface DemandModelMetric {
   r2: number;
 }
 
+export interface ConfusionMatrixEntry {
+  actual: string;
+  predicted: string;
+  count: number;
+}
+
+export interface ConfusionMatrix {
+  labels: string[];
+  entries: ConfusionMatrixEntry[];
+}
+
 export interface ClassificationModelMetric {
   model: string;
   accuracy: number;
   precision: number;
   recall: number;
   f1: number;
+  confusion_matrix?: ConfusionMatrix;
 }

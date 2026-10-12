@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Bell, CalendarDays, Download, LoaderCircle, RefreshCw } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { ApiInventoryRecord, PageKey, RiskLevel } from "../types";
+import type { ApiInventoryRecord, ConfusionMatrix, PageKey, RiskLevel } from "../types";
 import { downloadCsv, getAlerts, getAnalytics, getInventory, getModelComparison, apiRoutes } from "../services/api";
 import { EmptyState, Panel, RiskBadge, SectionHeading, StatusMessage } from "./ui";
 
@@ -13,11 +13,6 @@ const pageInfo: Record<PageKey, { title: string; description: string }> = {
   analytics: { title: "Analytics", description: "Live demand, stock, and risk trends" },
   models: { title: "ML Model Performance", description: "Actual evaluation results from trained models" },
   about: { title: "About BloodSight", description: "Blood-bank decision support" },
-  login: { title: "Sign in", description: "Access your BloodSight account" },
-  register: { title: "Create account", description: "Register for BloodSight" },
-  forgotPassword: { title: "Forgot password", description: "Request a secure password reset link" },
-  resetPassword: { title: "Reset password", description: "Choose a new account password" },
-  notFound: { title: "Page not found", description: "This page could not be found" },
 };
 
 const CACHE_TTL_MS = 15_000;
@@ -117,7 +112,393 @@ function ChartPanel({ title, children }: { title: string; children: React.ReactE
 
 export function LiveModelsPage() {
   const models = useRemoteData("models", getModelComparison);
-  return <div className="page-enter space-y-6"><Panel className="p-5 sm:p-6"><SectionHeading title="Actual model performance" description="Metrics evaluated against the chronological test split" action={<button onClick={() => void downloadCsv(apiRoutes.exportModels, "model-performance.csv")} className="inline-flex items-center gap-2 rounded-xl border border-[#dfe6ef] px-3 py-2 text-xs font-semibold text-[#52657e]"><Download size={14} /> Export metrics</button>} /><LoadState loading={models.loading} error={models.error} empty={!models.loading && !models.data} onRetry={() => { void models.reload(); }} />{models.data ? <div className="grid gap-6 xl:grid-cols-2"><MetricTable title="Demand models" headers={["Model", "MAE", "RMSE", "R2"]} rows={models.data.demand_models.map((item) => [item.model, item.mae.toFixed(3), item.rmse.toFixed(3), item.r2.toFixed(3)])} /><MetricTable title="Shortage models" headers={["Model", "Accuracy", "Precision", "Recall", "F1"]} rows={models.data.shortage_models.map((item) => [item.model, item.accuracy.toFixed(3), item.precision.toFixed(3), item.recall.toFixed(3), item.f1.toFixed(3)])} /></div> : null}</Panel></div>;
+
+  return (
+    <div className="page-enter space-y-6">
+
+      {/* ── Best-model winner banners ── */}
+      {models.data && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <BestModelBanner
+            label="Best demand model"
+            name={models.data.demand_best_model}
+            sub="Selected by highest R² on test set"
+            color="green"
+          />
+          <BestModelBanner
+            label="Best shortage model"
+            name={models.data.shortage_best_model}
+            sub="Selected by highest weighted F1 on test set"
+            color="blue"
+          />
+        </div>
+      )}
+
+      {/* ── Metric tables ── */}
+      <Panel className="p-5 sm:p-6">
+        <SectionHeading
+          title="Actual model performance"
+          description="All three algorithms evaluated on the same chronological test split (2025). Best value in each column is highlighted."
+          action={
+            <button
+              onClick={() => void downloadCsv(apiRoutes.exportModels, "model-performance.csv")}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#dfe6ef] px-3 py-2 text-xs font-semibold text-[#52657e]"
+            >
+              <Download size={14} /> Export metrics
+            </button>
+          }
+        />
+        <LoadState
+          loading={models.loading}
+          error={models.error}
+          empty={!models.loading && !models.data}
+          onRetry={() => { void models.reload(); }}
+        />
+        {models.data && (
+          <div className="mt-6 grid gap-8 xl:grid-cols-2">
+            <ComparisonTable
+              title="Demand prediction  (Regression)"
+              headers={["Model", "MAE ↓", "RMSE ↓", "R² ↑"]}
+              rows={models.data.demand_models.map((m) => ({
+                name: m.model,
+                values: [m.mae, m.rmse, m.r2],
+              }))}
+              lowerIsBetter={[true, true, false]}
+              bestModel={models.data.demand_best_model}
+            />
+            <ComparisonTable
+              title="Shortage risk  (Classification)"
+              headers={["Model", "Accuracy ↑", "Precision ↑", "Recall ↑", "F1 ↑"]}
+              rows={models.data.shortage_models.map((m) => ({
+                name: m.model,
+                values: [m.accuracy, m.precision, m.recall, m.f1],
+              }))}
+              lowerIsBetter={[false, false, false, false]}
+              bestModel={models.data.shortage_best_model}
+            />
+          </div>
+        )}
+      </Panel>
+
+      {/* ── Confusion Matrices ── */}
+      {models.data && models.data.shortage_models.some((m) => m.confusion_matrix) && (
+        <Panel className="p-5 sm:p-6">
+          <SectionHeading
+            title="Confusion Matrices (Shortage Risk Classification)"
+            description="Detailed distribution of actual vs. predicted risk levels (High, Low, Medium) on the chronological test split."
+          />
+          <div className="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {models.data.shortage_models.map((m) =>
+              m.confusion_matrix ? (
+                <ConfusionMatrixHeatmap
+                  key={m.model}
+                  modelName={m.model}
+                  cm={m.confusion_matrix}
+                  isBest={m.model === models.data!.shortage_best_model}
+                />
+              ) : null
+            )}
+          </div>
+        </Panel>
+      )}
+
+      {models.data && (
+        <p className="text-center text-[11px] text-[#9aa6b5]">
+          Metrics evaluated at{" "}
+          {new Date(models.data.evaluated_at).toLocaleString()}
+        </p>
+      )}
+    </div>
+  );
 }
 
-function MetricTable({ title, headers, rows }: { title: string; headers: string[]; rows: string[][] }) { return <div><h3 className="mb-3 text-sm font-bold text-[#344862]">{title}</h3><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="text-[10px] uppercase text-[#95a1b0]">{headers.map((header) => <th key={header} className="px-3 py-2">{header}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={row[0]} className="border-t border-[#edf1f5]">{row.map((cell) => <td key={cell} className="px-3 py-3 font-semibold text-[#52657e]">{cell}</td>)}</tr>)}</tbody></table></div></div>; }
+/* ── shared sub-components ──────────────────────────────────────── */
+
+function BestModelBanner({
+  label,
+  name,
+  sub,
+  color,
+}: {
+  label: string;
+  name: string;
+  sub: string;
+  color: "green" | "blue";
+}) {
+  const g = color === "green";
+  return (
+    <div
+      className={`flex items-center gap-4 rounded-2xl border px-5 py-4 ${
+        g
+          ? "border-[#d5e6dd] bg-[#f0faf5]"
+          : "border-[#dbe6f3] bg-[#f1f6fd]"
+      }`}
+    >
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white ${
+          g ? "bg-[#35a879]" : "bg-[#2d6aca]"
+        }`}
+      >
+        {/* trophy icon */}
+        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+        </svg>
+      </span>
+      <div>
+        <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${g ? "text-[#2d7a58]" : "text-[#2448a0]"}`}>
+          {label}
+        </p>
+        <p className="mt-0.5 text-base font-bold text-[#12223b]">{name}</p>
+        <p className={`mt-0.5 text-[11px] ${g ? "text-[#5a8a70]" : "text-[#4a6aa0]"}`}>{sub}</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Generic comparison table.
+ * - Best value in every metric column gets a green pill + bold green text.
+ * - The best-model row gets a subtle green background + "Best" badge.
+ */
+function ComparisonTable({
+  title,
+  headers,
+  rows,
+  lowerIsBetter,
+  bestModel,
+}: {
+  title: string;
+  headers: string[];
+  rows: { name: string; values: number[] }[];
+  lowerIsBetter: boolean[];
+  bestModel: string;
+}) {
+  // Pre-compute the best value for each metric column
+  const bestValues = lowerIsBetter.map((lower, colIdx) => {
+    const vals = rows.map((r) => r.values[colIdx]);
+    return lower ? Math.min(...vals) : Math.max(...vals);
+  });
+
+  return (
+    <div>
+      <h3 className="mb-3 text-sm font-bold text-[#344862]">{title}</h3>
+      <div className="overflow-x-auto rounded-2xl border border-[#edf1f5]">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-[#edf1f5] bg-[#f8fafc]">
+              {headers.map((h) => (
+                <th
+                  key={h}
+                  className="px-4 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#95a1b0]"
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const isBest = row.name === bestModel;
+              return (
+                <tr
+                  key={row.name}
+                  className={`border-t border-[#edf1f5] transition-colors ${
+                    isBest
+                      ? "bg-[#f0faf5]"
+                      : "hover:bg-[#fbfcfe]"
+                  }`}
+                >
+                  {/* Model name cell */}
+                  <td className="px-4 py-3.5">
+                    <span className="font-bold text-[#344862]">{row.name}</span>
+                    {isBest && (
+                      <span className="ml-2 inline-block rounded-md bg-[#35a879] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-white">
+                        Best
+                      </span>
+                    )}
+                  </td>
+                  {/* Metric value cells */}
+                  {row.values.map((val, colIdx) => {
+                    const isColBest = val === bestValues[colIdx];
+                    return (
+                      <td key={colIdx} className="px-4 py-3.5">
+                        {isColBest ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#e6f8ef] px-2.5 py-1 text-sm font-bold text-[#1f8a5a]">
+                            {val.toFixed(4)}
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </span>
+                        ) : (
+                          <span className="font-semibold text-[#52657e]">{val.toFixed(4)}</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Confusion matrix heatmap.
+ *
+ * Colour scale per cell:
+ *   - Diagonal (correct)     → green  (#e6f8ef → #1a7a4a), intensity by recall
+ *   - Off-diagonal (errors)  → red    (#fff5f5 → #c0392b), intensity by count
+ * Max counts are computed independently so the full colour range is used.
+ */
+function ConfusionMatrixHeatmap({
+  modelName,
+  cm,
+  isBest,
+}: {
+  modelName: string;
+  cm: ConfusionMatrix;
+  isBest: boolean;
+}) {
+  const { labels, entries } = cm;
+
+  // Build a lookup: (actual, predicted) → count
+  const countMap = new Map<string, number>();
+  let maxDiag = 1;
+  let maxOffDiag = 1;
+  for (const e of entries) {
+    countMap.set(`${e.actual}::${e.predicted}`, e.count);
+    if (e.actual === e.predicted) maxDiag = Math.max(maxDiag, e.count);
+    else maxOffDiag = Math.max(maxOffDiag, e.count);
+  }
+
+  // Row totals for per-row recall display
+  const rowTotals = new Map<string, number>();
+  for (const label of labels) {
+    const total = labels.reduce(
+      (sum, pred) => sum + (countMap.get(`${label}::${pred}`) ?? 0),
+      0
+    );
+    rowTotals.set(label, total);
+  }
+
+  function cellStyle(actual: string, predicted: string): React.CSSProperties {
+    const count = countMap.get(`${actual}::${predicted}`) ?? 0;
+    const isDiag = actual === predicted;
+    if (isDiag) {
+      const ratio = maxDiag > 0 ? count / maxDiag : 0;
+      // green: #e6f8ef (low) → #1a7a4a (high)
+      const r = Math.round(230 - ratio * (230 - 26));
+      const g = Math.round(248 - ratio * (248 - 122));
+      const b = Math.round(239 - ratio * (239 - 74));
+      return { backgroundColor: `rgb(${r},${g},${b})`, color: ratio > 0.55 ? "#fff" : "#1a4a2e" };
+    } else {
+      const ratio = maxOffDiag > 0 ? count / maxOffDiag : 0;
+      if (count === 0) return { backgroundColor: "#f8fafc", color: "#bcc8d8" };
+      // red: #fff5f5 (low) → #c0392b (high)
+      const r = Math.round(255 - ratio * (255 - 192));
+      const g = Math.round(245 - ratio * (245 - 57));
+      const b = Math.round(245 - ratio * (245 - 43));
+      return { backgroundColor: `rgb(${r},${g},${b})`, color: ratio > 0.55 ? "#fff" : "#7b1a14" };
+    }
+  }
+
+  // Per-class recall for the right-side annotations
+  function recall(label: string): string {
+    const correct = countMap.get(`${label}::${label}`) ?? 0;
+    const total = rowTotals.get(label) ?? 0;
+    return total > 0 ? `${((correct / total) * 100).toFixed(1)}%` : "—";
+  }
+
+  return (
+    <div className={`rounded-2xl border p-4 ${isBest ? "border-[#b8dfc8] bg-[#f6fdf9]" : "border-[#edf1f5] bg-white"}`}>
+      {/* Header */}
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-bold text-[#344862]">{modelName}</p>
+          <p className="mt-0.5 text-[10px] text-[#8a98aa]">Shortage risk · 3-class</p>
+        </div>
+        {isBest && (
+          <span className="rounded-md bg-[#35a879] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-white">
+            Best
+          </span>
+        )}
+      </div>
+
+      {/* Predicted header row */}
+      <div className="overflow-x-auto">
+        <table className="w-full border-separate border-spacing-[3px] text-center text-xs">
+          <thead>
+            <tr>
+              {/* top-left corner */}
+              <th className="w-[68px] pb-1 text-left text-[10px] font-bold uppercase tracking-widest text-[#95a1b0]">
+                Actual ↓
+              </th>
+              {labels.map((pred) => (
+                <th
+                  key={pred}
+                  className="pb-1 text-[10px] font-bold uppercase tracking-widest text-[#52657e]"
+                >
+                  {pred}
+                </th>
+              ))}
+              <th className="pb-1 text-[10px] font-bold uppercase tracking-widest text-[#8a98aa]">
+                Recall
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {labels.map((actual) => (
+              <tr key={actual}>
+                {/* Row label */}
+                <td className="pr-1 text-left text-[11px] font-bold text-[#344862]">
+                  {actual}
+                </td>
+                {/* Matrix cells */}
+                {labels.map((predicted) => {
+                  const count = countMap.get(`${actual}::${predicted}`) ?? 0;
+                  const isDiag = actual === predicted;
+                  return (
+                    <td
+                      key={predicted}
+                      className="rounded-lg py-2.5 font-bold leading-tight transition-transform hover:scale-105"
+                      style={cellStyle(actual, predicted)}
+                      title={`Actual: ${actual} → Predicted: ${predicted}: ${count}`}
+                    >
+                      <span className="block text-sm font-bold">{count}</span>
+                      {isDiag && (
+                        <span className="block text-[9px] font-normal opacity-80">✓</span>
+                      )}
+                    </td>
+                  );
+                })}
+                {/* Recall annotation */}
+                <td className="pl-1 text-[11px] font-semibold text-[#52657e]">
+                  {recall(actual)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Legend */}
+      <div className="mt-3 flex items-center gap-4 border-t border-[#edf1f5] pt-2.5">
+        <div className="flex items-center gap-1.5 text-[10px] text-[#7a8b9a]">
+          <span className="h-3 w-3 rounded bg-[#35a879]" />
+          Correct
+        </div>
+        <div className="flex items-center gap-1.5 text-[10px] text-[#7a8b9a]">
+          <span className="h-3 w-3 rounded bg-[#e25b63]" />
+          Misclassified
+        </div>
+        <div className="flex items-center gap-1.5 text-[10px] text-[#7a8b9a]">
+          <span className="h-3 w-3 rounded bg-[#f0f4f8]" />
+          Zero
+        </div>
+      </div>
+    </div>
+  );
+}
